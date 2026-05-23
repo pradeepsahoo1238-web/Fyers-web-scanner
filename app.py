@@ -2,10 +2,10 @@ import streamlit as st
 from fyers_apiv3 import fyersModel
 import pandas as pd
 
-# पेज सेटअप
+# 1. Page Config
 st.set_page_config(page_title="Sahoo Algo Terminal", layout="wide")
 
-# लॉगिन सुरक्षा
+# 2. Login Logic
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
@@ -18,7 +18,7 @@ if not st.session_state.auth:
             st.session_state.auth = True
             st.rerun()
         else:
-            st.error("गलत आईडी या पासवर्ड!")
+            st.error("Invalid Login Details!")
 else:
     st.title("🦅 Sahoo Advanced Algo Terminal")
     
@@ -29,22 +29,23 @@ else:
 
     st.sidebar.header("📡 Market Connection")
     
+    # यहाँ 'redirect_uri' का इस्तेमाल किया गया है जो Fyers मांग रहा है
     if st.sidebar.button("🔗 Connect Fyers Live"):
         try:
             session = fyersModel.SessionModel(
                 client_id=cid,
                 secret_key=skey,
-                redirect_url=rurl,
+                redirect_uri=rurl,  # <--- यहाँ सुधार कर दिया गया है
                 response_type="code",
                 grant_type="authorization_code"
             )
             auth_url = session.generate_auth_code()
-            st.sidebar.success("लिंक तैयार है!")
+            st.sidebar.success("Link Tayyar!")
             st.sidebar.link_button("👉 Click here to Login to Fyers", auth_url)
         except Exception as e:
-            st.sidebar.error(f"Error: {e}")
+            st.sidebar.error(f"Technical Error: {e}")
 
-    # मेन डैशबोर्ड इंटरफेस
+    # Dashboard Tabs
     tab1, tab2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
     
     with tab1:
