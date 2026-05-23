@@ -1,42 +1,29 @@
-import streamlit as st
-from fyers_apiv3 import fyersModel
+import hashlib
 
-# 1. Page Config
-st.set_page_config(page_title="Fyers Login", layout="centered")
+# ... upar ka session setup code wahi rahega ...
 
-# 2. Credentials (Yahan apni sahi details bharein)
-client_id = "YOUR_APP_ID"  # Apna App ID yahan dalein
-secret_key = "YOUR_SECRET_KEY" # Apna Secret Key yahan dalein
-redirect_uri = "https://fyers-web-scanner-jnk5fzyakjcfjueej3fcqg.streamlit.app/"
-st.title("🔗 Fyers Live Connection")
-
-# 3. Session Initialize
-session = fyersModel.SessionModel(
-    client_id=client_id,
-    secret_key=secret_key,
-    redirect_uri=redirect_uri,
-    response_type='code',
-    grant_type='authorization_code'
-)
-
-# 4. Login Logic
-if "auth_code" not in st.session_state:
-    if st.button("Connect to Fyers"):
+if st.button("Activate Session"):
+    if auth_code:
         try:
-            # DHAYAN DEIN: Yahan 'generate_authcode' hai (v3 ka sahi spelling)
-            response = session.generate_authcode()
-            st.write("Niche diye link par click karke login karein:")
-            st.markdown(f"[👉 Click Here to Login]({response})")
-        except Exception as e:
-            st.error(f"Error: {e}")
+            # 1. SHA256 Hash banana padta hai App_ID aur Secret_Key ka
+            # Format: app_id + ":" + secret_key
+            app_id_secret = f"{client_id}:{secret_key}"
+            hash_result = hashlib.sha256(app_id_secret.encode()).hexdigest()
 
-# 5. Token Generation (Login ke baad URL se code yahan dalna hoga)
-auth_code_input = st.text_input("Login ke baad jo 'auth_code' mila use yahan paste karein:")
-if st.button("Verify Account"):
-    try:
-        session.set_token(auth_code_input)
-        access_token_resp = session.generate_access_token()
-        st.success("✅ Login Successful!")
-        st.write("Aapka Access Token: ", access_token_resp['access_token'])
-    except Exception as e:
-        st.error(f"Activation Failed: {e}")
+            # 2. Session mein token set karein
+            session.set_token(auth_code)
+
+            # 3. SAHI METHOD: generate_token() use karein (purana wala nahi)
+            response = session.generate_token()
+
+            if response.get("s") == "ok":
+                st.session_state['access_token'] = response['access_token']
+                st.success("✅ Logged In Successfully!")
+                st.write("Aapka Access Token active hai.")
+            else:
+                st.error(f"Error from Fyers: {response.get('message')}")
+
+        except Exception as e:
+            st.error(f"Activation Failed: {e}")
+    else:
+        st.warning("Pehle Auth Code enter karein.")
