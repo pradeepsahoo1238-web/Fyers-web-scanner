@@ -1,14 +1,16 @@
 import streamlit as st
-from fyers_apiv3 import fyersModel
+from fyers_apiv3.FyersWebsocket import data_ws, order_ws
 import pandas as pd
 
-# 1. Page Config
-st.set_page_config(page_title="Sahoo Algo Terminal", layout="wide")
+# पेज कॉन्फ़िगरेशन
+st.set_page_config(page_title="Sahoo Pro Algo", layout="wide")
 
-# 2. Login Logic
-if "auth" not in st.session_state:
-    st.session_state.auth = False
+# डेटा स्टोर करने के लिए तिजोरी
+if "auth" not in st.session_state: st.session_state.auth = False
+if "live_prices" not in st.session_state: st.session_state.live_prices = {}
+if "order_updates" not in st.session_state: st.session_state.order_updates = []
 
+# लॉगिन सुरक्षा
 if not st.session_state.auth:
     st.title("🔐 Sahoo Secure Login")
     u = st.text_input("User ID")
@@ -17,45 +19,48 @@ if not st.session_state.auth:
         if u == st.secrets["MY_ID"] and p == st.secrets["MY_PASSWORD"]:
             st.session_state.auth = True
             st.rerun()
-        else:
-            st.error("Invalid Login Details!")
 else:
     st.title("🦅 Sahoo Advanced Algo Terminal")
     
-    # Secrets से डेटा लेना
-    cid = st.secrets["FYERS_CLIENT_ID"]
-    skey = st.secrets["FYERS_SECRET_KEY"]
-    rurl = st.secrets["FYERS_REDIRECT_URL"]
-
-    st.sidebar.header("📡 Market Connection")
+    # Secrets से चाबियाँ (App ID : Access Token format में)
+    access_token = f"{st.secrets['FYERS_CLIENT_ID']}:{st.secrets['FYERS_ACCESS_TOKEN']}"
     
-    # यहाँ 'redirect_uri' का इस्तेमाल किया गया है जो Fyers मांग रहा है
-    if st.sidebar.button("🔗 Connect Fyers Live"):
-        try:
-            session = fyersModel.SessionModel(
-                client_id=cid,
-                secret_key=skey,
-                redirect_uri=rurl,  # <--- यहाँ सुधार कर दिया गया है
-                response_type="code",
-                grant_type="authorization_code"
-            )
-            auth_url = session.generate_auth_code()
-            st.sidebar.success("Link Tayyar!")
-            st.sidebar.link_button("👉 Click here to Login to Fyers", auth_url)
-        except Exception as e:
-            st.sidebar.error(f"Technical Error: {e}")
+    # --- WebSocket Callbacks (Docs के अनुसार) ---
+    def on_market_data(message):
+        """मार्केट डेटा अपडेट के लिए"""
+        if "symbol" in message:
+            st.session_state.live_prices[message["symbol"]] = message["ltp"]
 
-    # Dashboard Tabs
-    tab1, tab2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
-    
+    def on_order_update(message):
+        """ऑर्डर और ट्रेड अपडेट के लिए"""
+        st.session_state.order_updates.append(message)
+
+    # साइडबार कंट्रोल्स
+    st.sidebar.header("📡 Market Connectivity")
+    if st.sidebar.button("🔗 Start Live Sockets"):
+        st.sidebar.success("Sockets Connecting...")
+        # यहाँ Websocket शुरू करने का लॉजिक आएगा (Backend में)
+
+    # --- मेन डैशबोर्ड ---
+    tab1, tab2, tab3 = st.tabs(["🔥 लाइव स्कैनर", "⛓️ ऑप्शन चेन", "📑 ऑर्डर्स & ट्रेड्स"])
+
     with tab1:
-        st.subheader("Live Market Activity")
-        st.info("Fyers लॉगिन के बाद डेटा लोड होगा।")
-        df = pd.DataFrame({
-            "Symbol": ["NIFTY 50", "BANK NIFTY", "RELIANCE", "SBIN"],
-            "LTP": ["Wait..", "Wait..", "Wait..", "Wait.."]
-        })
-        st.table(df)
+        st.subheader("Live Market (Data Socket)")
+        symbols = ["NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:RELIANCE-EQ", "NSE:SBIN-EQ"]
+        
+        # टेबल में डेटा दिखाना
+        rows = []
+        for s in symbols:
+            price = st.session_state.live_prices.get(s, "Wait..")
+            rows.append({"Symbol": s, "LTP": price})
+        st.table(pd.DataFrame(rows))
+
+    with tab3:
+        st.subheader("Recent Order/Trade Updates (Order Socket)")
+        if st.session_state.order_updates:
+            st.write(st.session_state.order_updates[-1]) # आखिरी अपडेट
+        else:
+            st.info("कोई नया ऑर्डर अपडेट नहीं है।")
 
     if st.sidebar.button("Logout"):
         st.session_state.auth = False
