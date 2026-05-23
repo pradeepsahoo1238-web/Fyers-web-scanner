@@ -7,8 +7,7 @@ st.set_page_config(page_title="Fyers Login", layout="centered")
 # 2. Credentials (Yahan apni sahi details bharein)
 client_id = "YOUR_APP_ID"  # Apna App ID yahan dalein
 secret_key = "YOUR_SECRET_KEY" # Apna Secret Key yahan dalein
-redirect_uri = "https://ej3fcqg.streamlit.app/" 
-
+redirect_uri = "https://fyers-web-scanner-jnk5fzyakjcfjueej3fcqg.streamlit.app/"
 st.title("🔗 Fyers Live Connection")
 
 # 3. Session Initialize
