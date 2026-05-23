@@ -4,7 +4,6 @@ import pandas as pd
 
 st.set_page_config(page_title="Sahoo Algo Terminal", layout="wide")
 
-# 1. Login Logic
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
@@ -19,43 +18,32 @@ if not st.session_state.auth:
         else:
             st.error("Galat Details!")
 else:
-    # 2. Terminal Dashboard
     st.title("🦅 Sahoo Advanced Algo Terminal")
     
-    # Fyers Details from Secrets
+    # Secrets से डेटा लेना
     client_id = st.secrets["FYERS_CLIENT_ID"]
     secret_key = st.secrets["FYERS_SECRET_KEY"]
     redirect_url = st.secrets["FYERS_REDIRECT_URL"]
 
     st.sidebar.header("📡 Market Connection")
     
-    # Fyers Login Button
     if st.sidebar.button("🔗 Connect Fyers Live"):
+        # सुधरा हुआ सेशन मॉडल (नए अपडेट के साथ)
         session = fyersModel.SessionModel(
-            client_id=client_id, 
-            secret_key=secret_key, 
-            redirect_url=redirect_url, 
-            response_type="code", 
+            client_id=client_id,
+            secret_key=secret_key,
+            redirect_url=redirect_url,
+            response_type="code",
             grant_type="authorization_code"
         )
         auth_url = session.generate_auth_code()
-        st.sidebar.info("Neeche diye link par click karke login karein:")
         st.sidebar.link_button("👉 Click here to Login", auth_url)
 
-    # Main Tabs
+    # डैशबोर्ड का हिस्सा
     tab1, tab2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
-    
     with tab1:
-        st.subheader("Live Market Volume Spikes")
-        # Sample table for look
-        data = {
-            "Symbol": ["NIFTY 50", "BANK NIFTY", "RELIANCE", "SBIN"],
-            "LTP": ["Loading...", "Loading...", "Loading...", "Loading..."],
-            "Volume Shock": ["--", "--", "--", "--"]
-        }
-        st.table(pd.DataFrame(data))
-        st.info("Fyers se login karne ke baad yahan live rates refresh honge.")
-
-    with tab2:
-        st.subheader("Option Chain (OI Analysis)")
-        st.write("Nifty/BankNifty ki option chain yahan dikhegi.")
+        st.subheader("Market Activity")
+        st.write("Fyers से लॉगिन करने के बाद यहाँ लाइव डेटा रिफ्रेश होगा।")
+        # यहाँ एक खाली टेबल ताकि स्क्रीन अच्छी दिखे
+        df = pd.DataFrame({"Symbol": ["NIFTY", "BANKNIFTY"], "LTP": [0.0, 0.0]})
+        st.table(df)
