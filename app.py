@@ -2,9 +2,10 @@ import streamlit as st
 from fyers_apiv3 import fyersModel
 import pandas as pd
 
+# पेज सेटिंग्स
 st.set_page_config(page_title="Sahoo Algo Terminal", layout="wide")
 
-# 1. Authentication Check
+# 1. सुरक्षा लॉगिन
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
@@ -17,44 +18,51 @@ if not st.session_state.auth:
             st.session_state.auth = True
             st.rerun()
         else:
-            st.error("Galat Details!")
+            st.error("गलत क्रेडेंशियल्स!")
 else:
-    # 2. Terminal Dashboard
+    # 2. मुख्य टर्मिनल
     st.title("🦅 Sahoo Advanced Algo Terminal")
     
-    # Secrets se data lena
-    client_id = st.secrets["FYERS_CLIENT_ID"]
-    secret_key = st.secrets["FYERS_SECRET_KEY"]
-    redirect_url = st.secrets["FYERS_REDIRECT_URL"]
+    # Secrets से चाबियां लेना
+    cid = st.secrets["FYERS_CLIENT_ID"]
+    skey = st.secrets["FYERS_SECRET_KEY"]
+    rurl = st.secrets["FYERS_REDIRECT_URL"]
 
     st.sidebar.header("📡 Market Connection")
     
-    # Is button ke click hone par hi Fyers link banega
+    # Fyers कनेक्ट करने का बटन
     if st.sidebar.button("🔗 Connect Fyers Live"):
-        session = fyersModel.SessionModel(
-            client_id=client_id,
-            secret_key=secret_key,
-            redirect_url=redirect_url,
-            response_type="code",
-            grant_type="authorization_code"
-        )
-        auth_url = session.generate_auth_code()
-        st.sidebar.success("Link Tayyar Hai!")
-        st.sidebar.link_button("👉 Click here to Login to Fyers", auth_url)
+        try:
+            session = fyersModel.SessionModel(
+                client_id=cid,
+                secret_key=skey,
+                redirect_url=rurl,
+                response_type="code",
+                grant_type="authorization_code"
+            )
+            auth_url = session.generate_auth_code()
+            st.sidebar.success("लिंक तैयार है!")
+            st.sidebar.link_button("👉 Click here to Login to Fyers", auth_url)
+        except Exception as e:
+            st.sidebar.error(f"Setup Error: {e}")
 
-    # Dashboard Interface
-    tab1, tab2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
+    # डैशबोर्ड लेआउट
+    t1, t2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
     
-    with tab1:
-        st.subheader("Market Activity")
-        st.info("Fyers se login karne ke baad data yahan dikhega.")
-        # Khali table placeholder
-        df = pd.DataFrame({"Symbol": ["NIFTY", "BANKNIFTY"], "LTP": [0.0, 0.0]})
+    with t1:
+        st.subheader("Live Market Activity")
+        st.info("Fyers लॉगिन के बाद यहाँ डेटा लाइव अपडेट होगा।")
+        # डेटा टेबल का ढांचा
+        df = pd.DataFrame({
+            "Symbol": ["NIFTY 50", "BANK NIFTY", "RELIANCE", "SBIN"],
+            "LTP": ["Wait..", "Wait..", "Wait..", "Wait.."],
+            "Volume": ["--", "--", "--", "--"]
+        })
         st.table(df)
 
-    with tab2:
-        st.subheader("Option Chain Analysis")
-        st.write("Live OI data loading...")
+    with t2:
+        st.subheader("Option Chain Data")
+        st.write("Live OI Analysis loading...")
 
     if st.sidebar.button("Logout"):
         st.session_state.auth = False
