@@ -42,26 +42,4 @@ else:
             # यहाँ लिंक को एक बटन की तरह दिखा रहे हैं
             st.sidebar.markdown(f'''
                 <a href="{auth_url}" target="_blank">
-                    <button style="background-color: #ff4b4b; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; width: 100%;">
-                        👉 Click here to Login Fyers
-                    </button>
-                </a>
-            ''', unsafe_allow_html=True)
-        except Exception as e:
-            st.sidebar.error(f"Error: {e}")
-
-    # डैशबोर्ड इंटरफेस
-    tab1, tab2 = st.tabs(["🔥 लाइव स्कैनर", "📊 ऑप्शन चेन"])
     
-    with tab1:
-        st.subheader("Live Market Activity")
-        st.info("Fyers लॉगिन के बाद डेटा लाइव अपडेट होगा।")
-        df = pd.DataFrame({
-            "Symbol": ["NIFTY 50", "BANK NIFTY", "RELIANCE", "SBIN"],
-            "LTP": ["Wait..", "Wait..", "Wait..", "Wait.."]
-        })
-        st.table(df)
-
-    if st.sidebar.button("Logout"):
-        st.session_state.auth = False
-        st.rerun()
