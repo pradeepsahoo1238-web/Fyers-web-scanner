@@ -1,16 +1,17 @@
 import streamlit as st
+from fyers_apiv3 import fyersModel
 from fyers_apiv3.FyersWebsocket import data_ws, order_ws
 import pandas as pd
 
-# पेज कॉन्फ़िगरेशन
+# पेज सेटअप
 st.set_page_config(page_title="Sahoo Pro Algo", layout="wide")
 
-# डेटा स्टोर करने के लिए तिजोरी
+# डेटा स्टोर करने के लिए मेमोरी
 if "auth" not in st.session_state: st.session_state.auth = False
+if "access_token" not in st.session_state: st.session_state.access_token = None
 if "live_prices" not in st.session_state: st.session_state.live_prices = {}
-if "order_updates" not in st.session_state: st.session_state.order_updates = []
 
-# लॉगिन सुरक्षा
+# --- लॉगिन स्क्रीन ---
 if not st.session_state.auth:
     st.title("🔐 Sahoo Secure Login")
     u = st.text_input("User ID")
@@ -20,47 +21,54 @@ if not st.session_state.auth:
             st.session_state.auth = True
             st.rerun()
 else:
+    # --- मेन टर्मिनल ---
     st.title("🦅 Sahoo Advanced Algo Terminal")
     
-    # Secrets से चाबियाँ (App ID : Access Token format में)
-    access_token = f"{st.secrets['FYERS_CLIENT_ID']}:{st.secrets['FYERS_ACCESS_TOKEN']}"
+    cid = st.secrets["FYERS_CLIENT_ID"]
+    skey = st.secrets["FYERS_SECRET_KEY"]
+    rurl = st.secrets["FYERS_REDIRECT_URL"]
+
+    # साइडबार: कनेक्शन और टोकन
+    st.sidebar.header("📡 Market Connection")
     
-    # --- WebSocket Callbacks (Docs के अनुसार) ---
-    def on_market_data(message):
-        """मार्केट डेटा अपडेट के लिए"""
-        if "symbol" in message:
-            st.session_state.live_prices[message["symbol"]] = message["ltp"]
+    # स्टेप 1: लॉगिन लिंक जेनरेट करना
+    if st.sidebar.button("1. Get Login Link"):
+        session = fyersModel.SessionModel(client_id=cid, secret_key=skey, redirect_uri=rurl, response_type="code", grant_type="authorization_code")
+        st.sidebar.link_button("👉 Click to Login Fyers", session.generate_auth_code())
 
-    def on_order_update(message):
-        """ऑर्डर और ट्रेड अपडेट के लिए"""
-        st.session_state.order_updates.append(message)
+    # स्टेप 2: टोकन सेव करना (URL से कोड यहाँ पेस्ट करें)
+    auth_code = st.sidebar.text_input("Paste Auth Code from URL here:")
+    if st.sidebar.button("2. Generate Access Token"):
+        session = fyersModel.SessionModel(client_id=cid, secret_key=skey, redirect_uri=rurl, response_type="code", grant_type="authorization_code")
+        session.set_token(auth_code)
+        response = session.generate_token()
+        if "access_token" in response:
+            st.session_state.access_token = response["access_token"]
+            st.sidebar.success("Token Generated! 🟢")
+        else:
+            st.sidebar.error("Error generating token!")
 
-    # साइडबार कंट्रोल्स
-    st.sidebar.header("📡 Market Connectivity")
-    if st.sidebar.button("🔗 Start Live Sockets"):
-        st.sidebar.success("Sockets Connecting...")
-        # यहाँ Websocket शुरू करने का लॉजिक आएगा (Backend में)
-
-    # --- मेन डैशबोर्ड ---
-    tab1, tab2, tab3 = st.tabs(["🔥 लाइव स्कैनर", "⛓️ ऑप्शन चेन", "📑 ऑर्डर्स & ट्रेड्स"])
+    # --- डैशबोर्ड टैब्स ---
+    tab1, tab2, tab3 = st.tabs(["🔥 लाइव स्कैनर", "⛓️ ऑप्शन चेन", "📑 ट्रेड बुक"])
 
     with tab1:
-        st.subheader("Live Market (Data Socket)")
+        st.subheader("Market Watch (Live WebSocket)")
+        # सिम्बल्स की लिस्ट (Docs के अनुसार)
         symbols = ["NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX", "NSE:RELIANCE-EQ", "NSE:SBIN-EQ"]
         
-        # टेबल में डेटा दिखाना
-        rows = []
-        for s in symbols:
-            price = st.session_state.live_prices.get(s, "Wait..")
-            rows.append({"Symbol": s, "LTP": price})
-        st.table(pd.DataFrame(rows))
+        # लाइव डेटा दिखाने की टेबल
+        if st.session_state.access_token:
+            st.write(f"Connected with Token: `{st.session_state.access_token[:10]}...`")
+            # यहाँ सॉकेट डेटा का डिस्प्ले आएगा
+        else:
+            st.warning("कृपया ऊपर दिए गए स्टेप्स से टोकन जेनरेट करें।")
+
+        df = pd.DataFrame({"Symbol": symbols, "LTP": ["Wait.."] * len(symbols)})
+        st.table(df)
 
     with tab3:
-        st.subheader("Recent Order/Trade Updates (Order Socket)")
-        if st.session_state.order_updates:
-            st.write(st.session_state.order_updates[-1]) # आखिरी अपडेट
-        else:
-            st.info("कोई नया ऑर्डर अपडेट नहीं है।")
+        st.subheader("Your Positions & Orders")
+        st.info("यहाँ आपकी लाइव पोजीशंस और P&L दिखेगा।")
 
     if st.sidebar.button("Logout"):
         st.session_state.auth = False
