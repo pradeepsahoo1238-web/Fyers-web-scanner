@@ -1,29 +1,69 @@
+import streamlit as st
+from fyers_apiv3 import fyersModel
 import hashlib
 
-# ... upar ka session setup code wahi rahega ...
+# --- CONFIGURATION ---
+CLIENT_ID = "YOUR_APP_ID"  # Fyers Dashboard se lein
+SECRET_KEY = "YOUR_SECRET_KEY" 
+REDIRECT_URI = "https://fyers-web-scanner-jnk5fzyakjcfjueej3fcqg.streamlit.app/"
 
-if st.button("Activate Session"):
-    if auth_code:
+st.set_page_config(page_title="Fyers Web Scanner", layout="wide")
+st.title("📊 Fyers Trading Dashboard")
+
+# --- SESSION INITIALIZATION ---
+if 'access_token' not in st.session_state:
+    st.session_state.access_token = None
+
+# Initialize Session Model
+session = fyersModel.SessionModel(
+    client_id=CLIENT_ID,
+    secret_key=SECRET_KEY,
+    redirect_uri=REDIRECT_URI,
+    response_type='code',
+    grant_type='authorization_code'
+)
+
+# --- LOGIN FLOW ---
+if not st.session_state.access_token:
+    if st.button("🔗 Step 1: Connect to Fyers"):
         try:
-            # 1. SHA256 Hash banana padta hai App_ID aur Secret_Key ka
-            # Format: app_id + ":" + secret_key
-            app_id_secret = f"{client_id}:{secret_key}"
+            # v3 Method: generate_authcode()
+            auth_url = session.generate_authcode()
+            st.markdown(f"### [👉 Yahan Click Karke Login Karein]({auth_url})")
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+    auth_code = st.text_input("Step 2: Login ke baad URL se 'auth_code' yahan paste karein:")
+    
+    if st.button("Step 3: Activate Session"):
+        try:
+            # v3 Requirement: Hash generation
+            app_id_secret = f"{CLIENT_ID}:{SECRET_KEY}"
             hash_result = hashlib.sha256(app_id_secret.encode()).hexdigest()
-
-            # 2. Session mein token set karein
+            
+            # Token set and generate
             session.set_token(auth_code)
-
-            # 3. SAHI METHOD: generate_token() use karein (purana wala nahi)
+            # SAHI METHOD: generate_token()
             response = session.generate_token()
-
+            
             if response.get("s") == "ok":
-                st.session_state['access_token'] = response['access_token']
+                st.session_state.access_token = response['access_token']
                 st.success("✅ Logged In Successfully!")
-                st.write("Aapka Access Token active hai.")
+                st.rerun()
             else:
-                st.error(f"Error from Fyers: {response.get('message')}")
-
+                st.error(f"Error: {response.get('message')}")
         except Exception as e:
             st.error(f"Activation Failed: {e}")
-    else:
-        st.warning("Pehle Auth Code enter karein.")
+
+# --- TRADING DASHBOARD (After Login) ---
+else:
+    st.sidebar.success("⚡ Connected")
+    st.write(f"Access Token: `{st.session_state.access_token[:10]}...`")
+    
+    if st.sidebar.button("Logout"):
+        st.session_state.access_token = None
+        st.rerun()
+
+    # Yahan aap apna WebSocket ya Trading logic likh sakte hain
+    st.subheader("Market Watch & WebSocket")
+    st.info("Ab aap niche diye gaye code snippet ko use karke WebSocket data le sakte hain.")
