@@ -1,45 +1,74 @@
 import streamlit as st
 from fyers_apiv3 import fyersModel
-import pandas as pd
+import webbrowser
 
-# 1. पेज सेटअप
-st.set_page_config(page_title="Sahoo Pro Algo", layout="wide")
+# --- CONFIGURATION ---
+# Inhe aap apne Fyers Dashboard (api-t1.fyers.in) se le sakte hain
+CLIENT_ID = "YOUR_CLIENT_ID_HERE" 
+SECRET_KEY = "YOUR_SECRET_KEY_HERE"
+REDIRECT_URI = "https://ej3fcqg.streamlit.app/" # Ensure this matches exactly in Fyers Dashboard
 
-# 2. लॉगिन सुरक्षा
-if "auth" not in st.session_state:
-    st.session_state.auth = False
+st.set_page_config(page_title="Fyers Trading Bot", layout="centered")
 
-if not st.session_state.auth:
-    st.title("🔐 Sahoo Secure Login")
-    u = st.text_input("User ID")
-    p = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if u == st.secrets["MY_ID"] and p == st.secrets["MY_PASSWORD"]:
-            st.session_state.auth = True
-            st.rerun()
-        else:
-            st.error("गलत लॉगिन डिटेल्स!")
-else:
-    st.title("🦅 Sahoo Advanced Algo Terminal")
+st.title("📡 Market Connection")
+st.divider()
+
+# --- SESSION INITIALIZATION ---
+if 'access_token' not in st.session_state:
+    st.session_state.access_token = None
+
+# Initialize SessionModel
+session = fyersModel.SessionModel(
+    client_id=CLIENT_ID,
+    secret_key=SECRET_KEY,
+    redirect_uri=REDIRECT_URI,
+    response_type='code',
+    grant_type='authorization_code'
+)
+
+# --- UI LOGIC ---
+if not st.session_state.access_token:
+    st.info("Aapka account connected nahi hai. Please login karein.")
     
-    # Secrets से डेटा लेना
-    cid = st.secrets["FYERS_CLIENT_ID"]
-    skey = st.secrets["FYERS_SECRET_KEY"]
-    rurl = st.secrets["FYERS_REDIRECT_URL"]
-
-    st.sidebar.header("📡 Market Connection")
-    
-    # सुधरा हुआ लॉगिन लॉजिक: पहले बटन दबेगा, फिर लिंक दिखेगा
-    if st.sidebar.button("🔗 Connect Fyers Live"):
+    if st.button("🔗 Connect Fyers Live"):
         try:
-            session = fyersModel.SessionModel(
-                client_id=cid,
-                secret_key=skey,
-                redirect_uri=rurl,
-                response_type="code"
-            )
-            auth_url = session.generate_auth_code()
-            # यहाँ लिंक को एक बटन की तरह दिखा रहे हैं
-            st.sidebar.markdown(f'''
-                <a href="{auth_url}" target="_blank">
+            # DHAYAN DEIN: 'generate_authcode' (v3 ka sahi method hai)
+            auth_url = session.generate_authcode()
+            
+            st.success("Login link generate ho gaya hai!")
+            st.markdown(f"### [👉 Yahan Click Karke Login Karein]({auth_url})")
+            st.caption("Login karne ke baad aap redirect honge, wahan se 'auth_code' copy karke niche dalein.")
+            
+        except Exception as e:
+            st.error(f"Error generating link: {e}")
+
+    # Auth Code se Access Token banane ka section
+    auth_code = st.text_input("Login ke baad URL se 'auth_code' yahan paste karein:")
     
+    if st.button("Verify & Activate"):
+        if auth_code:
+            try:
+                session.set_token(auth_code)
+                response = session.generate_access_token()
+                st.session_state.access_token = response['access_token']
+                st.success("✅ Connection Successful! Ab aap trading kar sakte hain.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Activation Error: {e}")
+        else:
+            st.warning("Please enter the auth code first.")
+
+else:
+    st.success("⚡ Connected to Fyers Live")
+    if st.button("Logout"):
+        st.session_state.access_token = None
+        st.rerun()
+
+# --- REQUIREMENTS FILE KA CONTENT ---
+# Ye aapko 'requirements.txt' naam ki file mein daalna hai GitHub par:
+"""
+# requirements.txt content:
+# streamlit
+# fyers-apiv3
+# pandas
+"""
