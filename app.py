@@ -1,80 +1,61 @@
 import streamlit as st
-from fyers_apiv3 import fyersModel
+from fyers_apiv3.FyersWebsocket import data_ws
+import pandas as pd
+import time
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="Fyers Trading Bridge", layout="centered")
-st.title("📡 Fyers Live Connection v3")
+# --- UI SETTINGS (HACKER STYLE) ---
+st.set_page_config(page_title="Sahoo Vastu Algo", layout="wide")
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; color: #00ff41; }
+    .stMetric { background-color: #1a1c24; border: 1px solid #00ff41; padding: 10px; border-radius: 5px; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- STEP 1: SECRETS SE DATA FETCH KARNA ---
-# Streamlit Dashboard > Settings > Secrets mein ye keys honi chahiye
-try:
-    APP_ID = st.secrets["CLIENT_ID"]
-    SECRET_KEY = st.secrets["SECRET_KEY"]
-    REDIRECT_URI = st.secrets["REDIRECT_URI"]
-except Exception as e:
-    st.error("❌ Secrets Setup Missing!")
-    st.info("""
-    Streamlit Settings mein 'Secrets' box mein ye paste karein:
-    
-    CLIENT_ID = "YOUR_APP_ID"
-    SECRET_KEY = "YOUR_SECRET_ID"
-    REDIRECT_URI = "https://ej3fcqg.streamlit.app/"
-    """)
-    st.stop()
+st.title("⚡ Dark Wave Algo-Terminal")
 
-# --- STEP 2: SESSION INITIALIZATION ---
-def get_session():
-    return fyersModel.SessionModel(
-        client_id=APP_ID,
-        secret_key=SECRET_KEY,
-        redirect_uri=REDIRECT_URI,
-        response_type='code',
-        grant_type='authorization_code'
-    )
+# --- SESSION STATE (कनेक्शन को टूटने से बचाने के लिए) ---
+if 'live_data' not in st.session_state:
+    st.session_state['live_data'] = {"NIFTY": 0, "BANKNIFTY": 0}
 
-session = get_session()
+# --- FYERS CALLBACKS ---
+def onmessage(message):
+    # लाइव डेटा अपडेट करना
+    symbol = message.get('symbol')
+    ltp = message.get('ltp')
+    if "NIFTY50" in symbol:
+        st.session_state['live_data']["NIFTY"] = ltp
+    elif "NIFTYBANK" in symbol:
+        st.session_state['live_data']["BANKNIFTY"] = ltp
 
-# --- STEP 3: UI AND LOGIC ---
-st.subheader("Connect Your Account")
+def onopen():
+    symbols = ["NSE:NIFTY50-INDEX", "NSE:NIFTYBANK-INDEX"]
+    fyers_socket.subscribe(symbols=symbols, data_type="SymbolUpdate")
 
-if st.button("🔗 Generate Login Link"):
-    try:
-        # DHAYAN DEIN: 'generate_authcode' (v3 ka sahi method hai bina underscore ke)
-        auth_url = session.generate_authcode()
-        st.success("Login link ready hai!")
-        st.markdown(f"### [👉 Yahan Click Karke Login Karein]({auth_url})")
-        st.info("Login karne ke baad aap ek naye page par jayenge. Us page ke URL se 'auth_code=' ke baad wala hissa copy karein.")
-    except Exception as e:
-        st.error(f"Error: {e}")
-        st.warning("Check karein: Kya Dashboard mein App ID sahi hai aur Status 'Active' hai?")
+# --- APP LOGIC ---
+access_token = "YOUR_APP_ID:YOUR_ACCESS_TOKEN" # यहाँ अपना टोकन डालें
 
-st.divider()
+if st.button('Connect to Dark Wave'):
+    with st.spinner('Establishing Socket Connection...'):
+        fyers_socket = data_ws.FyersDataSocket(
+            access_token=access_token,
+            on_connect=onopen,
+            on_message=onmessage,
+            reconnect=True
+        )
+        fyers_socket.connect()
+        st.success("Connected!")
 
-# --- STEP 4: ACCESS TOKEN GENERATION ---
-auth_code = st.text_input("Yahan 'auth_code' paste karein:")
+# --- DASHBOARD LAYOUT ---
+col1, col2 = st.columns(2)
 
-if st.button("⚡ Activate Connection"):
-    if auth_code:
-        try:
-            session.set_token(auth_code)
-            response = session.generate_access_token()
-            
-            if response.get('s') == 'ok':
-                st.session_state['access_token'] = response.get('access_token')
-                st.success("🎉 Mubarak ho! Aapka Fyers App Active ho gaya hai.")
-                st.balloons()
-            else:
-                st.error(f"Token error: {response.get('message')}")
-        except Exception as e:
-            st.error(f"Failed to activate: {e}")
-    else:
-        st.warning("Pehle login karke auth_code layein.")
+with col1:
+    st.metric(label="NIFTY 50", value=st.session_state['live_data']["NIFTY"])
 
-# --- STEP 5: STATUS CHECK ---
-if 'access_token' in st.session_state:
-    st.sidebar.success("✅ App Status: Online")
-    if st.sidebar.button("Logout"):
-        del st.session_state['access_token']
-        st.rerun()
-else:
-    st.sidebar.error("❌ App Status: Offline")
+with col2:
+    st.metric(label="BANKNIFTY", value=st.session_state['live_data']["BANKNIFTY"])
+
+# डेटा को रिफ्रेश करने के लिए छोटा सा लूप
+if st.session_state['live_data']["NIFTY"] != 0:
+    time.sleep(1)
+    st.rerun()
